@@ -54,6 +54,11 @@ A huge thanks to all those that have contributed to the Lightshow Pi codebase:
 Release Notes
 ============
 
+2019/12/24 :: Version 3.11
+-------------------------------
+
+* microweb - Directory Play page under Playlist page
+
 2019/12/20 :: Version 3.10
 -------------------------------
 

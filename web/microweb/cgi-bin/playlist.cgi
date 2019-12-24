@@ -61,6 +61,16 @@ print ("""
                 <input id="playlist" type="submit" value="Back">
             </form>
 
+            <p></p>
+
+            <form method="post" action="dir_play.cgi">
+                <input id="playlist" type="submit" value="Directory Play">
+            </form>
+
+            <p></p>
+            <h3> Current config playlist </h3>
+
+
      
 """) 
 
