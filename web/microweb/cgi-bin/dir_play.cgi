@@ -15,6 +15,7 @@ import csv
 import subprocess
 import configparser
 import mutagen
+import re
 from time import sleep
 
 import pwd
@@ -24,6 +25,8 @@ uid = pwd.getpwnam("pi").pw_uid
 gid = grp.getgrnam("pi").gr_gid
 
 file_types = [".wav", ".mp1", ".mp2", ".mp3", ".mp4", ".m4a", ".m4b", ".ogg", ".flac", ".oga", ".wma", ".wmv", ".aif"]
+
+endmessage = ""
 
 HOME_DIR = os.getenv("SYNCHRONIZED_LIGHTS_HOME")
 sys.path.insert(0, HOME_DIR + '/py')
@@ -64,6 +67,14 @@ if message == 'Change Directory':
     with open(state_file, 'w') as state_fp:
         state.write(state_fp)
 
+if message == "Create Directory":
+    p = re.compile('^\w+$', re.ASCII)
+    if p.match(directory):
+        os.mkdir(music_path + '/' + directory)
+        os.chown(music_path + '/' + directory, uid, gid)
+    else:
+        endmessage = "Invalid Characters for Create Directory"
+
 dirplay_path = state.get('microweb','dirplay')
 if dirplay_path:
     playlist_dir = dirplay_path
@@ -73,7 +84,7 @@ else:
 if songplay:
     os.system('pkill -f "bash $SYNCHRONIZED_LIGHTS_HOME/bin"')
     os.system('pkill -f "python $SYNCHRONIZED_LIGHTS_HOME/py"')
-    os.popen("python ${SYNCHRONIZED_LIGHTS_HOME}/py/synchronized_lights.py --file=" + playlist_dir + '/' + songplay + " &")
+    os.popen('python ${SYNCHRONIZED_LIGHTS_HOME}/py/synchronized_lights.py --file="' + playlist_dir + '/' + songplay + '" &')
 
 if message == 'Start':
     os.system('rm $SYNCHRONIZED_LIGHTS_HOME/config/state.cfg')
@@ -109,6 +120,9 @@ print ("""
             <h2> LightShowPi Web Controls </h2>
             <h3> Directory Play </h3>
 
+            <form method="post" action="web_controls.cgi">
+                <input id="playlist" type="submit" value="Home">
+            </form>
             <form method="post" action="playlist.cgi">
                 <input id="playlist" type="submit" value="Back">
             </form>
@@ -122,7 +136,7 @@ print ('<option value="' + os.path.dirname(playlist_path) + '">Config Default</o
 for root,subdirs,files in os.walk(music_path):
     if root == dirplay_path:
         print ('<option value="' + root + '" selected>' + root + '</option>')
-    else:
+    elif root != music_path:
         print ('<option value="' + root + '">' + root + '</option>')
 
 print ("""
@@ -130,6 +144,15 @@ print ("""
                 <p></p>
                 <input type="hidden" name="message" value="Change Directory"/>
                 <input id="playlist" type="submit" value="Change Directory">
+            </form>
+
+            <p></p>
+
+            <form method="post" action="dir_play.cgi">
+                <input type="text" name="Directory">
+                <p></p>
+                <input type="hidden" name="message" value="Create Directory"/>
+                <input id="playlist" type="submit" value="Create Directory">
             </form>
 
             <p></p>
@@ -324,6 +347,9 @@ if os.path.isfile(playlist_dir + '/.playlist'):
 
 else:
     print ('Playlist must be created')
+
+if endmessage:
+    print(endmessage)
         
 if songplay:
     print("playing " + songplay)
