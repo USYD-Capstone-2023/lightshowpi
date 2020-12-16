@@ -7,10 +7,11 @@
 # Author: Ken B
 
 import cgi
+import html
 import cgitb
 import os, stat
 import subprocess
-import ConfigParser
+import configparser
 from time import sleep
 
 
@@ -19,11 +20,11 @@ form = cgi.FieldStorage()
 message = form.getvalue("message", "")
 
 HOME_DIR = os.getenv("SYNCHRONIZED_LIGHTS_HOME")
-volume = subprocess.check_output([HOME_DIR + '/bin/vol'])
+volume = subprocess.check_output([HOME_DIR + '/bin/vol'],shell=True).decode()
 
 state_file = HOME_DIR + '/web/microweb/config/webstate.cfg'
-state = ConfigParser.RawConfigParser()
-state.readfp(open(state_file))
+state = configparser.RawConfigParser()
+state.read_file(open(state_file))
 config_file = state.get('microweb','config')
 if config_file:
     config_param = '--config=' + config_file + ' '
@@ -35,8 +36,8 @@ else:
         config_file = 'defaults.cfg'
 
 cfg_file = HOME_DIR + '/config/' + config_file
-cfg = ConfigParser.RawConfigParser()
-cfg.readfp(open(cfg_file))
+cfg = configparser.RawConfigParser()
+cfg.read_file(open(cfg_file))
 lightshowmode = cfg.get('lightshow','mode')
 lightshowstc = cfg.get('lightshow','stream_command_string')
 
@@ -81,10 +82,10 @@ if message:
         os.popen("${SYNCHRONIZED_LIGHTS_HOME}/bin/check_sms " + config_param + "&")
         sleep(1)
 
-print "Content-type: text/html"
+print ("Content-type: text/html")
 print
 
-print """
+print ("""
 <!DOCTYPE html>
 <html>
     <head>
@@ -117,22 +118,22 @@ print """
             <div id="voldiv">
             <form method="post" action="web_controls.cgi">
                 <input id="volDown" type="submit" name="message" value="Volume -">
-"""
+""")
 
-print '<div id="volumediv" class="centered-content">' + volume + '</div>'
+print ('<div id="volumediv" class="centered-content">' + volume + '</div>')
 
-print """
+print ("""
                 <input id="volUp" type="submit" name="message" value="Volume +">
             </form>
             </div>
-"""
+""")
 if lightshowmode == "playlist":
-    print """
+    print ("""
             <form method="post" action="playlist.cgi">
                 <input id="playlist" type="submit" value="Playlist">
             </form>
-"""
-print """
+""")
+print ("""
             <form method="post" action="web_controls.cgi">
                 <input type="hidden" name="message" value="On"/>
                 <input id="on" type="submit" value="Lights ON">
@@ -142,7 +143,7 @@ print """
                 <input type="hidden" name="message" value="Off"/>
                 <input id="off" type="submit" value="Lights OFF">
             </form>
-""" 
+""")
 
 cmd = 'pgrep -f "python $SYNCHRONIZED_LIGHTS_HOME/py/synchronized_lights.py"'
 if os.system(cmd) == 0:
@@ -151,25 +152,25 @@ if os.system(cmd) == 0:
     except IOError:
         now_playing = None
         pass
-    print """
+    print ("""
         <form method="post" action="web_controls.cgi">
             <input type="hidden" name="message" value="Next"/>
             <input id="next" type="submit" value="Play Next">
         </form>
-"""
+""")
 else:
     now_playing = None
-    print """
+    print ("""
         <form method="post" action="web_controls.cgi">
             <input type="hidden" name="message" value="Start"/>
             <input id="start" type="submit" value="START">
         </form>
-"""
+""")
 
 if message:
-    print """<h2>Executed command: %s</h2>""" % cgi.escape(message)
+    print ("""<h2>Executed command: %s</h2>""" % html.escape(message))
 
 if now_playing:
-    print """<h3>%s<h3>""" % cgi.escape(now_playing)
+    print ("""<h3>%s<h3>""" % html.escape(now_playing))
 
-print "</body></html>"
+print ("</body></html>")
