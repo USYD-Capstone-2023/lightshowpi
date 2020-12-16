@@ -13,7 +13,7 @@ Configuration files are all located in the <homedir>/config directory. This file
 manage these configuration files.
 """
 
-import ConfigParser
+import configparser
 import ast
 import csv
 import datetime
@@ -76,8 +76,8 @@ class Configuration(object):
         self.param_config = param_config
 
         # ConfigParsers
-        self.config = ConfigParser.RawConfigParser(allow_no_value=True)
-        self.state = ConfigParser.RawConfigParser()
+        self.config = configparser.RawConfigParser(allow_no_value=True)
+        self.state = configparser.RawConfigParser()
 
         self.state_section = 'do_not_modify'
 
@@ -116,7 +116,7 @@ class Configuration(object):
 
     def load_config(self):
         """Load config files into ConfigParser instance"""
-        self.config.readfp(open(self.config_dir + 'defaults.cfg'))
+        self.config.read_file(open(self.config_dir + 'defaults.cfg'))
 
         overrides = list()
         if self.param_config:
@@ -130,7 +130,7 @@ class Configuration(object):
         """Force the state to be reloaded form disk."""
         with open(self.state_file) as state_fp:
             fcntl.lockf(state_fp, fcntl.LOCK_SH)
-            self.state.readfp(state_fp, self.state_file)
+            self.state.read_file(state_fp, self.state_file)
             fcntl.lockf(state_fp, fcntl.LOCK_UN)
 
     def get_state(self, name, default=""):
@@ -151,7 +151,7 @@ class Configuration(object):
         """
         try:
             return self.state.get(self.state_section, name)
-        except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        except (configparser.NoOptionError, configparser.NoSectionError):
             return default
 
     def update_state(self, name, value):
@@ -171,7 +171,7 @@ class Configuration(object):
 
         self.state.set(self.state_section, name, value)
 
-        with open(self.state_file, 'wb') as state_fp:
+        with open(self.state_file, 'wt') as state_fp:
             fcntl.lockf(state_fp, fcntl.LOCK_EX)
             self.state.write(state_fp)
             fcntl.lockf(state_fp, fcntl.LOCK_UN)
@@ -201,14 +201,14 @@ class Configuration(object):
             logging.error("devices not defined or not in JSON format." + str(error))
         hrdwr["devices"] = devices
 
-        for device_type, settings in hrdwr["devices"].iteritems():
+        for device_type, settings in hrdwr["devices"].items():
             for count in range(len(settings)):
-                for k, v in settings[count].iteritems():
-                    settings[count][k] = v if not isinstance(v, str) else int(v, 16)
+                for k, v in settings[count].items():
+                    settings[count][k] = v
 
         g_pins = self.config.get('hardware', 'gpio_pins')
         try:
-            hrdwr["gpio_pins"] = map(int, g_pins.split(","))
+            hrdwr["gpio_pins"] = list(map(int, g_pins.split(",")))
         except (AttributeError, ValueError):
             hrdwr["gpio_pins"] = list()
 
@@ -244,8 +244,8 @@ class Configuration(object):
         Retrieves the led configuration parsing it from the Config Parser as necessary.
         """
 
-        self.led_config = ConfigParser.RawConfigParser(allow_no_value=True)
-        self.led_config.readfp(open(self.config_dir + config_file))
+        self.led_config = configparser.RawConfigParser(allow_no_value=True)
+        self.led_config.read_file(open(self.config_dir + config_file))
 
         led = dict()
 
@@ -264,7 +264,7 @@ class Configuration(object):
             led["led_configuration"] = None
             led["led_connection"] = None
 
-        if st in sst[0:3] and lconn == "SPI":
+        if st in sst[0:5] and lconn == "SPI":
             led["strip_type"] = st
         elif lconn in ["SERIAL"] and st in sst:
             led["strip_type"] = st
@@ -291,7 +291,18 @@ class Configuration(object):
             led["channel_order"] = c_order
         else:
             led["channel_order"] = "RGB"
-        
+
+        led_count = self.led_config.getint('led', 'led_channel_count')
+
+        g_leds = self.led_config.get('led', 'custom_per_channel')
+        try:
+            led["custom_per_channel"] = list(map(int, g_leds.split(",")))
+            led["led_channel_count"] = len(led["custom_per_channel"])
+            led_count = len(led["custom_per_channel"])
+        except (AttributeError, ValueError, TypeError ):
+            led["custom_per_channel"] = list()
+            led["led_channel_count"] = led_count
+ 
         led["led_channel_configuration"] = self.led_config.get('led', 'led_channel_configuration').upper()
 
         led_count = self.led_config.getint('led', 'led_channel_count')
@@ -343,7 +354,7 @@ class Configuration(object):
         led["per_channel"] = self.led_config.getint('led', 'per_channel')
 
         led["pattern_color_map"] = self.led_config.get('led', 'pattern_color_map').upper()
-        led["pattern_color"] = map(int, self.led_config.get('led', 'pattern_color').split(","))
+        led["pattern_color"] = list(map(int, self.led_config.get('led', 'pattern_color').split(",")))
         led["pattern_type"] = self.led_config.get('led', 'pattern_type').upper()
 
         device_id = self.led_config.getint('led', 'device_id')
@@ -373,6 +384,8 @@ class Configuration(object):
         led["multiprocess"] = False
 
         led["beats"] = self.led_config.getint('led', 'beats')
+ 
+        led["banner_text"] = self.led_config.get('led', 'banner_text').replace('"','')
 
         self.led = Section(led)
 
@@ -383,6 +396,10 @@ class Configuration(object):
         fm = dict()
         fm["enabled"] = self.config.getboolean('fm', 'fm')
         fm["frequency"] = self.config.get('fm', 'frequency')
+        fm["program_service_name"] = self.config.get('fm', 'program_service_name')
+        fm["ps_increment_delay"] = self.config.get('fm', 'ps_increment_delay')
+        fm["radio_text"] = self.config.get('fm', 'radio_text')
+        fm["fmfifo"] = '/tmp/fmfifo'
         self.fm = Section(fm)
 
     def set_network(self):
@@ -391,13 +408,14 @@ class Configuration(object):
         """
         ntwrk = dict()
         ntwrk["networking"] = self.config.get('network', 'networking')
+        ntwrk["ip_clients"] = list(map(str, self.config.get('network', 'ip_clients').split(",")))
         ntwrk["port"] = self.config.getint('network', 'port')
         ntwrk["buffer"] = self.config.getint('network', 'buffer')
 
         if len(self.config.get('network', 'channels')) == 0:
             channels = [_ for _ in range(self.gpio_len)]
         else:
-            channels = map(int, self.config.get('network', 'channels').split(","))
+            channels = list(map(int, self.config.get('network', 'channels').split(",")))
 
         temp = defaultdict()
         for channel in range(len(channels)):
@@ -443,11 +461,11 @@ class Configuration(object):
         lghtshw["randomize_playlist"] = self.config.getboolean(ls, 'randomize_playlist')
 
         on_c = "always_on_channels"
-        lghtshw[on_c] = map(int, self.config.get(ls, on_c).split(","))
+        lghtshw[on_c] = list(map(int, self.config.get(ls, on_c).split(",")))
         off_c = "always_off_channels"
-        lghtshw[off_c] = map(int, self.config.get(ls, off_c).split(","))
+        lghtshw[off_c] = list(map(int, self.config.get(ls, off_c).split(",")))
         ic = "invert_channels"
-        lghtshw[ic] = map(int, self.config.get(ls, ic).split(","))
+        lghtshw[ic] = list(map(int, self.config.get(ls, ic).split(",")))
 
         # setup up preshow
         preshow = None
@@ -499,6 +517,7 @@ class Configuration(object):
         Retrieve the audio processing configuration loading and parsing it from a file as necessary.
         """
         audio_prcssng = dict()
+        audio_prcssng["use_gpu"] = self.config.getboolean('audio_processing', 'use_gpu')
         audio_prcssng["chunk_size"] = self.config.getint('audio_processing', 'chunk_size')
         audio_prcssng["min_frequency"] = \
             self.config.getfloat('audio_processing', 'min_frequency')
@@ -506,10 +525,10 @@ class Configuration(object):
             self.config.getfloat('audio_processing', 'max_frequency')
         temp = self.config.get('audio_processing', 'custom_channel_mapping')
         audio_prcssng["custom_channel_mapping"] = \
-            map(int, temp.split(',')) if temp else 0
+            list(map(int, temp.split(','))) if temp else 0
         temp = self.config.get('audio_processing', 'custom_channel_frequencies')
         audio_prcssng["custom_channel_frequencies"] = \
-            map(int, temp.split(',')) if temp else 0
+            list(map(int, temp.split(','))) if temp else 0
 
         self.audio_processing = Section(audio_prcssng)
 
@@ -594,7 +613,7 @@ class Configuration(object):
     def get_playlist(self, play_list=None):
         play_list = play_list or self.playlist_path
 
-        with open(play_list, 'rb') as playlist_fp:
+        with open(play_list, 'rt') as playlist_fp:
             fcntl.lockf(playlist_fp, fcntl.LOCK_SH)
             playlist = csv.reader(playlist_fp, delimiter='\t')
             songs = list()
@@ -604,8 +623,8 @@ class Configuration(object):
                     log.error('Invalid playlist.  Each line should be in the form: '
                               '<song name><tab><path to song>')
                     log.warning('Removing invalid entry')
-                    print "Error found in playlist"
-                    print "Deleting entry:", song
+                    print("Error found in playlist")
+                    print("Deleting entry:", song)
                     continue
 
                 elif len(song) > 2:
@@ -623,12 +642,12 @@ class Configuration(object):
         return songs
 
     def set_playlist(self, songs):
-	self.playlist = songs
+        self.playlist = songs
 
     def write_playlist(self, songs, playlist=None):
         playlist = playlist or self.playlist_path
 
-        with open(playlist, 'wb') as playlist_fp:
+        with open(playlist, 'wt') as playlist_fp:
             fcntl.lockf(playlist_fp, fcntl.LOCK_EX)
             writer = csv.writer(playlist_fp, delimiter='\t')
 
@@ -641,7 +660,7 @@ class Configuration(object):
             writer.writerows(songs)
             fcntl.lockf(playlist_fp, fcntl.LOCK_UN)
 
-	self.playlist = songs
+        self.playlist = songs
 
     def has_permission(self, user, cmd):
         """Returns True if a user has permission to execute the given command
@@ -802,7 +821,7 @@ class Section(object):
         :param dict_of_items: a dict containing key, value pairs to set
         :type dict_of_items: dict
         """
-        for key, value in dict_of_items.iteritems():
+        for key, value in dict_of_items.items():
             setattr(self, key, value)
 
     def get(self, item):
@@ -828,46 +847,46 @@ if __name__ == "__main__":
     sms_cm = Configuration(sms=True,param_config=args.config)
 
     if args.config:
-        print "Configuration File:", args.config, "\n"
+        print("Configuration File:", args.config, "\n")
     elif os.path.isfile(CONFIG_DIR + '/overrides.cfg'):
-        print "Configuration File: overrides.cfg\n"
+        print("Configuration File: overrides.cfg\n")
     else:
-        print "Configuration File: defaults.cfg\n"
+        print("Configuration File: defaults.cfg\n")
 
-    print "Home directory set:", HOME_DIR
-    print "Config directory set:", CONFIG_DIR
-    print "Logs directory set:", LOG_DIR
+    print("Home directory set:", HOME_DIR)
+    print("Config directory set:", CONFIG_DIR)
+    print("Logs directory set:", LOG_DIR)
 
-    print "\nHardware Configuration"
-    for h_key, h_value in cm.hardware.config.iteritems():
-        print h_key, "=", h_value
+    print("\nHardware Configuration")
+    for h_key, h_value in cm.hardware.config.items():
+        print(h_key, "=", h_value)
 
-    print "\nLightshow Configuration"
-    for l_key, l_value in cm.lightshow.config.iteritems():
-        print l_key, "=", l_value
+    print("\nLightshow Configuration")
+    for l_key, l_value in cm.lightshow.config.items():
+        print(l_key, "=", l_value)
 
-    print "\nAudio Processing Configuration"
-    for a_key, a_value in cm.audio_processing.config.iteritems():
-        print a_key, "=", a_value
+    print("\nAudio Processing Configuration")
+    for a_key, a_value in cm.audio_processing.config.items():
+        print(a_key, "=", a_value)
 
-    print "\nNetwork Configuration"
-    for nkey, nvalue in cm.network.config.iteritems():
-        print nkey, "=", nvalue
+    print("\nNetwork Configuration")
+    for nkey, nvalue in cm.network.config.items():
+        print(nkey, "=", nvalue)
 
-    print "\nSMS Configuration"
-    for s_key, s_value in sms_cm.sms.config.iteritems():
-        print s_key, "=", s_value
+    print("\nSMS Configuration")
+    for s_key, s_value in sms_cm.sms.config.items():
+        print(s_key, "=", s_value)
 
-    for wc_key, wc_value in sms_cm.who_can.iteritems():
-        print wc_key, "=", wc_value
+    for wc_key, wc_value in sms_cm.who_can.items():
+        print(wc_key, "=", wc_value)
 
-    print "\nLED Configuration"
+    print("\nLED Configuration")
     for lc in cm.configs.led:
         cm.set_led(config_file=lc)
-        for led_key, led_value in cm.led.config.iteritems():
-            print led_key, "=", led_value
+        for led_key, led_value in cm.led.config.items():
+            print(led_key, "=", led_value)
 
-    print "\nTerminal Configuration" 
-    for tkey, tvalue in cm.terminal.config.iteritems(): 
-        print tkey, "=", tvalue
+    print("\nTerminal Configuration")
+    for tkey, tvalue in cm.terminal.config.items(): 
+        print(tkey, "=", tvalue)
 

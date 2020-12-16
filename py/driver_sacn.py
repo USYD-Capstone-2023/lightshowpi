@@ -35,7 +35,7 @@ import struct
 
 import os
 os.sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import bibliopixel.log as log
+from bibliopixel.util import log
 
 
 class CMDTYPE:
@@ -64,11 +64,8 @@ class DriverSACN(DriverBase):
         self._broadcast_interface = broadcast_interface
         self._universe = universe
         self._universe_boundary = universe_boundary
-
-
-# s = socket(AF_INET, SOCK_DGRAM)
-# s.bind(('', 0))
-# s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+        self.sequenceno = 0
+        self.lastbuf = None
 
     def _connect(self):
         try:
@@ -87,41 +84,55 @@ class DriverSACN(DriverBase):
         except socket.gaierror:
             error = "Unable to connect to or resolve host: {}".format(
                 self._host)
-            log.error(error)
+            log.logger.error(error)
             raise IOError(error)
 
-    # Push new data to strand
-    def update(self, data):
-        try:
-            self._fixData(data)
-            data = self._buf
-            s = self._connect()
+    def _compute_packet(self):
+        self._render()
+        self._packet = self._buf
 
-            universes = int(self.bufByteCount / self._universe_boundary) + 1
-            countlast = self.bufByteCount % self._universe_boundary
+    # Push new data to strand
+    def _send_packet(self):
+        try:
+            # open sock only once
+            if self._sock == None:
+                s = self._connect()
+            else:
+                s = self._sock
+            # do not duplicate packets
+            bytesdata = bytes(self._buf)
+            if self.lastbuf == bytesdata:
+                return
+            bbc = self.bufByteCount()
+
+            universes = int(bbc / self._universe_boundary) + 1
+            countlast = bbc % self._universe_boundary
 
             countboundary = self._universe_boundary * (universes - 1)
+            data = self._buf
             udata = data[countboundary:countboundary + countlast]
-            packet = E131Packet(universe=self._universe + universes - 1, data=udata)
+            if self.sequenceno == 256:
+                self.sequenceno = 0
+            packet = E131Packet(universe=self._universe + universes - 1, data=udata, sequence=self.sequenceno)
             s.sendto(packet.packet_data, (self._host, self._port))
             universes -= 1
             while universes > 0:
                 countboundary = self._universe_boundary * (universes - 1)
                 udata = data[countboundary:countboundary + self._universe_boundary]
-                packet = E131Packet(universe=self._universe + universes - 1, data=udata)
+                packet = E131Packet(universe=self._universe + universes - 1, data=udata, sequence=self.sequenceno)
                 s.sendto(packet.packet_data, (self._host, self._port))
                 universes -=1
                 
 
-#            packet = E131Packet(universe=self._universe, data=data)
-#            s.sendto(packet.packet_data, (self._host, self._port))
 
-            s.close()
+#            s.close()
+            self.lastbuf = bytesdata
+            self.sequenceno += 1
 
         except Exception as e:
-            log.exception(e)
+            log.logger.error(e)
             error = "Problem communicating with network receiver!"
-            log.error(error)
+            log.logger.error(error)
             raise IOError(error)
 
 

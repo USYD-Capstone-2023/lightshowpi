@@ -12,7 +12,7 @@ import os
 import sys
 import fcntl
 import csv
-import ConfigParser
+import configparser
 from time import sleep
 
 HOME_DIR = os.getenv("SYNCHRONIZED_LIGHTS_HOME")
@@ -20,8 +20,8 @@ sys.path.insert(0, HOME_DIR + '/py')
 import configuration_manager
 
 state_file = HOME_DIR + '/web/microweb/config/webstate.cfg'
-state = ConfigParser.RawConfigParser()
-state.readfp(open(state_file))
+state = configparser.RawConfigParser()
+state.read_file(open(state_file))
 config_file = state.get('microweb','config')
 
 cm = configuration_manager.Configuration(param_config=config_file)
@@ -35,10 +35,10 @@ if itemnext:
 #    cm.update_state('song_to_play', str(itemnext -1))
     cm.update_state('play_now', str(itemnext))
 
-print "Content-type: text/html"
+print ("Content-type: text/html")
 print
 
-print """
+print ("""
 <!DOCTYPE html>
 <html>
     <head>
@@ -62,28 +62,28 @@ print """
             </form>
 
      
-""" 
+""") 
 
 if itemnext:
     itemnext -= 1
 else:
     itemnext = int(cm.get_state('song_to_play', "0"))
 
-with open(cm.lightshow.playlist_path, 'rb') as playlist_fp:
+with open(cm.lightshow.playlist_path, 'r') as playlist_fp:
     fcntl.lockf(playlist_fp, fcntl.LOCK_SH)
     playlist = csv.reader(playlist_fp, delimiter='\t')
     
     itemnumber = 0
     for song in playlist:
-        print '<form method="post" action="playlist.cgi?itemnumber=' + str(itemnumber) + '">'
+        print ('<form method="post" action="playlist.cgi?itemnumber=' + str(itemnumber) + '">')
         if itemnumber == itemnext:
             input_id = 'playnext'
         else:
             input_id = 'playitem'
-        print '<input id="' + input_id + '" type="submit" name="item' + str(itemnumber) + '" value="' + song[0] + '">'
-        print '</form>'
+        print ('<input id="' + input_id + '" type="submit" name="item' + str(itemnumber) + '" value="' + song[0] + '">')
+        print ('</form>')
         itemnumber += 1
 
     fcntl.lockf(playlist_fp, fcntl.LOCK_UN)
 
-print "</body></html>"
+print ("</body></html>")
