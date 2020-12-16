@@ -371,11 +371,11 @@ class Lightshow(object):
             if cm.lightshow.mode == 'stream-in':
                 self.num_channels = 2
 
-            output_device = aa.PCM(aa.PCM_PLAYBACK, aa.PCM_NORMAL, cm.lightshow.audio_out_card)
-            output_device.setchannels(self.num_channels)
-            output_device.setrate(self.sample_rate)
-            output_device.setformat(aa.PCM_FORMAT_S16_LE)
-            output_device.setperiodsize(self.chunk_size)
+            output_device = aa.PCM(aa.PCM_PLAYBACK, aa.PCM_NORMAL, cm.lightshow.audio_out_card,
+                                   channels=self.num_channels,
+                                   rate=self.sample_rate,
+                                   format=aa.PCM_FORMAT_S16_LE,
+                                   periodsize=self.chunk_size)
 
             self.output = lambda raw_data: output_device.write(raw_data)
 
@@ -385,11 +385,11 @@ class Lightshow(object):
 
         if cm.lightshow.mode == 'audio-in':
             # Open the input stream from default input device
-            self.streaming = aa.PCM(aa.PCM_CAPTURE, aa.PCM_NORMAL, cm.lightshow.audio_in_card)
-            self.streaming.setchannels(self.num_channels)
-            self.streaming.setformat(aa.PCM_FORMAT_S16_LE)  # Expose in config if needed
-            self.streaming.setrate(self.sample_rate)
-            self.streaming.setperiodsize(self.chunk_size)
+            self.streaming = aa.PCM(aa.PCM_CAPTURE, aa.PCM_NORMAL, cm.lightshow.audio_in_card,
+                                    channels=self.num_channels,
+                                    rate=self.sample_rate,
+                                    format=aa.PCM_FORMAT_S16_LE,
+                                    periodsize=self.chunk_size)
 
             stream_reader = lambda: self.streaming.read()[-1]
 
@@ -459,7 +459,7 @@ class Lightshow(object):
         if self.server:
             self.network.set_playing()
 
-        songcount = 0 
+        songcount = 0
 
         # Listen on the audio input device until CTRL-C is pressed
         while True:
