@@ -494,7 +494,7 @@ class Lightshow(object):
             except aa.ALSAAudioError:
                 continue
 
-            if len(data):
+            if len(data) == self.chunk_size:
                 # if the maximum of the absolute value of all samples in
                 # data is below a threshold we will disregard it
                 audio_max = audioop.max(data, 2)
