@@ -9,7 +9,7 @@ PYTHON_DEPS=(numpy Beautifulsoup4 mutagen simplejson twython emoji \
 
 ## System packages to be installed
 SYSTEM_DEPS=(python3-pip python3-dev curl faad flac gcc git lame mpg123 make \
-             python3-numpy python3-setuptools unzip vorbis-tools wiringpi \
+             python3-numpy python3-setuptools unzip vorbis-tools subversion \
              cython3 pianobar libjpeg-dev libtiff-dev libatlas-base-dev)
 
 ## Miscellaneous checks
