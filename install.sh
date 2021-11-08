@@ -115,7 +115,7 @@ svn export https://github.com/raspberrypi/firmware/trunk/opt/vc /opt/vc
 log Install deb package manually for wiringPi
 cd /tmp
 wget https://project-downloads.drogon.net/wiringpi-latest.deb
-sudo dpkg -i wiringpi-latest.deb
+/usr/bin/yes | dpkg -i wiringpi-latest.deb
 cd $BUILD_DIR
 
 # Some symlinks that will make life a little easier
