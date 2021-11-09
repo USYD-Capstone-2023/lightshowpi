@@ -165,9 +165,9 @@ print ("""
             <p></p>
 
             <form method="post" action="dir_play.cgi" enctype="multipart/form-data">
-                <input id="playlist" type="submit" value="Upload File" />
+                <input id="playlist" type="submit" value="Upload Files" />
                 <p>
-                <input type="file" name="upload" value="Select File"/>
+                <input type="file" name="upload" value="Select Files" multiple/>
                 </p>
             </form>
 
@@ -184,8 +184,18 @@ if upload:
         print ("</body></html>")
         sys.exit()
     filedata = form['upload']
-    filename = playlist_dir + '/' + filedata.filename
-    if filedata.file:
+    if isinstance(filedata, list):
+        print ('<p><h2>Selected multiple</h2></p>')
+        for fsel in filedata:
+            filename = playlist_dir + '/' + fsel.filename
+            print ('<p><h2>Uploading ' + filename + '</h2></p>')
+            if os.path.splitext(filename)[1] in file_types:
+                open(filename, 'wb').write(fsel.file.read())
+                os.chown(filename, uid, gid)
+    else:
+        print ('<p><h2>Selected one</h2></p>')
+        filename = playlist_dir + '/' + filedata.filename
+        print ('<p><h2>Uploading ' + filename + '</h2></p>')
         if os.path.splitext(filename)[1] in file_types:
             open(filename, 'wb').write(filedata.file.read())
             os.chown(filename, uid, gid)

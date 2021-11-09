@@ -54,6 +54,12 @@ A huge thanks to all those that have contributed to the Lightshow Pi codebase:
 Release Notes
 ============
 
+2021/11/09 :: Version 3.20
+-------------------------------
+
+* Fixes for Pi4(B), kernel and Debian 11 based OS
+* dir_play support multiple uploads
+
 2019/12/24 :: Version 3.11
 -------------------------------
 
