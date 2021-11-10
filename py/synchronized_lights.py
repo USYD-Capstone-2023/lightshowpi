@@ -367,7 +367,7 @@ class Lightshow(object):
         if cm.fm.enabled:
             self.set_fm()
 
-        elif cm.lightshow.audio_out_card is not '':
+        elif cm.lightshow.audio_out_card != '':
             if cm.lightshow.mode == 'stream-in':
                 self.num_channels = 2
 
