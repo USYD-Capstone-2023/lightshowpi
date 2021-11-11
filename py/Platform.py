@@ -105,6 +105,9 @@ def pi_version():
     elif match.group(1) == 'BCM2709':
         # Pi 2
         return 2
+    elif match.group(1) == 'BCM2711':
+        # Pi 4
+        return 4
     elif match.group(1) == 'BCM2835':
         # 4.9+ kernel
         (type,header) = get_model()
@@ -194,7 +197,7 @@ def get_model():
     elif model in ["e0"]:
         return "Pi 3 Model A+", header40
     
-    elif model in ["11"]:
+    elif model in ["11", "14"]:
         return "Pi 4 Model B", header40
     
     elif model in ["92", "93", "c1"]:

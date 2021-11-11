@@ -107,6 +107,17 @@ for _dep in ${SYSTEM_DEPS[@]}; do
     pkginstall $_dep;
 done
 
+# make sure opt/vc is installed - dep subversion
+log Attempt to install opt/vc failure is not a concern
+svn export https://github.com/raspberrypi/firmware/trunk/opt/vc /opt/vc
+
+# wiringpi apt-get not available on Deb 11+
+log Install deb package manually for wiringPi
+cd /tmp
+wget https://project-downloads.drogon.net/wiringpi-latest.deb
+/usr/bin/yes | dpkg -i wiringpi-latest.deb
+cd $BUILD_DIR
+
 # Some symlinks that will make life a little easier
 # Note that this may (intentionally) clobber Python 3 symlinks in newer OS's
 mv /usr/bin/python /usr/bin/python2
