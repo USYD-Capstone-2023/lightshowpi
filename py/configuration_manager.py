@@ -108,6 +108,7 @@ class Configuration(object):
             self.set_audio_processing()
             self.set_network()
             self.set_terminal()
+            self.set_custom_sequences()
         else:
             self.sms = None
             self.who_can = dict()
@@ -238,6 +239,12 @@ class Configuration(object):
         term = dict()
         term["enabled"] = self.config.getboolean('terminal', 'enabled')
         self.terminal = Section(term)
+
+    def set_custom_sequences(self):
+        scs = dict()
+        scs["timing"] = self.config.getint('custom_sequences', 'timing')
+        scs["brightness_range"] = self.config.getint('custom_sequences', 'brightness_range')
+        self.custom_sequences = Section(scs)
 
     def set_led(self, config_file):
         """
