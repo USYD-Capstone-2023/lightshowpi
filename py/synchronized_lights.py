@@ -367,7 +367,7 @@ class Lightshow(object):
         if cm.fm.enabled:
             self.set_fm()
 
-        elif cm.lightshow.audio_out_card is not '':
+        elif cm.lightshow.audio_out_card != '':
             if cm.lightshow.mode == 'stream-in':
                 self.num_channels = 2
 
@@ -494,7 +494,7 @@ class Lightshow(object):
             except aa.ALSAAudioError:
                 continue
 
-            if len(data):
+            if len(data) == self.chunk_size:
                 # if the maximum of the absolute value of all samples in
                 # data is below a threshold we will disregard it
                 audio_max = audioop.max(data, 2)
