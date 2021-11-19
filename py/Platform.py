@@ -200,7 +200,7 @@ def get_model():
     elif model in ["11", "14"]:
         return "Pi 4 Model B", header40
     
-    elif model in ["92", "93", "c1"]:
+    elif model in ["92", "93", "c1", "20"]:
         return "Pi Zero", header40
     
     raise RuntimeError('Could not determine Raspberry Pi model.')    
