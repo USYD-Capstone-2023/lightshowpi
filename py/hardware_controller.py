@@ -188,7 +188,7 @@ class Hardware(object):
         for channel in range(cm.hardware.gpio_len):
             self.channels.append(Channel(cm.hardware.gpio_pins[channel],
                                          cm.hardware.is_pin_pwm[channel],
-                                         cm.hardware.active_low_mode,
+                                         cm.hardware.active_low_mode[channel],
                                          cm.hardware.pwm_range,
                                          cm.hardware.piglow))
 

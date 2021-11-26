@@ -50,9 +50,17 @@ A huge thanks to all those that have contributed to the Lightshow Pi codebase:
 * Paul Barnett
 * Anthony Tod
 * Brent Reinhard
+* Caleb H
+* Filippo B
 
 Release Notes
 ============
+
+2021/11/11 :: Version 3.21
+-------------------------------
+
+* Caleb H contribution of .csv parsing as import sequence channel data
+* Filippo B contribution of add active_low_mode by channel
 
 2021/11/09 :: Version 3.20
 -------------------------------
