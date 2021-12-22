@@ -759,7 +759,7 @@ def even_odd_alt_flash(iteration, lights, sleepTime, pwnSleepTime):            #
                     light_on(light, False, 1.0)
                 else:
                     light_off(light, False, 0.0)
-    # Sleep between each iteration
+    # Sleep after looping through all lights
     time.sleep(sleepTime)
 
 
