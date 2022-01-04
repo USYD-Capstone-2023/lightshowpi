@@ -1028,7 +1028,7 @@ if __name__ == "__main__":
                                             "step",
                                             "cleanup"],
                         help='turn off, on, flash, fade, random_pattern, cylon, '
-                             'dance, step or cleanup')
+                             'dance, step, sprinkler, half_flash, or cleanup')
     parser.add_argument('--test', action="store_true",
                         help='Run a basic hardware test')
 
