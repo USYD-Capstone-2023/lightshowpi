@@ -81,6 +81,7 @@ import bright_curses
 import mutagen
 from queue import Queue, Empty
 from threading import Thread
+import csv
 
 import alsaaudio as aa
 import decoder
@@ -164,6 +165,8 @@ class Lightshow(object):
         self.config_filename = None
         self.song_filename = None
         self.terminal = None
+        self.sequence_filename = None
+        self.sequence_type = 'auto'
 
         self.output = lambda raw_data: None
 
@@ -235,28 +238,37 @@ class Lightshow(object):
         :param matrix: row of data from cache matrix
         :type matrix: list
         """
-        brightness = matrix - self.mean + (self.std * self.sd_low)
-        brightness = (brightness / (self.std * (self.sd_low + self.sd_high))) \
+        if self.sequence_type == 'auto':
+            brightness = matrix - self.mean + (self.std * self.sd_low)
+            brightness = (brightness / (self.std * (self.sd_low + self.sd_high))) \
             * (1.0 - (self.attenuate_pct / 100.0))
 
-        # insure that the brightness levels are in the correct range
-        brightness = clip(brightness, 0.0, 1.0)
-        # brightness = round(brightness, decimals=3)
-        brightness = nan_to_num(brightness)
+            # insure that the brightness levels are in the correct range
+            brightness = clip(brightness, 0.0, 1.0)
+            # brightness = round(brightness, decimals=3)
+            brightness = nan_to_num(brightness)
 
-        # calculate light decay rate if used
-        if self.decay_factor > 0:
-            self.decay = where(self.decay <= brightness,
-                               brightness,
-                               self.decay)
+            # calculate light decay rate if used
+            if self.decay_factor > 0:
+                self.decay = where(self.decay <= brightness,
+                                   brightness,
+                                   self.decay)
 
-            brightness = where(self.decay <= brightness,
-                               brightness,
-                               self.decay)
+                brightness = where(self.decay <= brightness,
+                                   brightness,
+                                   self.decay)
 
-            self.decay = where(self.decay - self.decay_factor > 0,
-                               self.decay - self.decay_factor,
-                               0)
+                self.decay = where(self.decay - self.decay_factor > 0,
+                                   self.decay - self.decay_factor,
+                                   0)
+
+        elif self.sequence_type == 'csv':
+            brightness = matrix / cm.custom_sequences.brightness_range
+
+            # insure that the brightness levels are in the correct range
+            brightness = clip(brightness, 0.0, 1.0)
+            # brightness = round(brightness, decimals=3)
+            brightness = nan_to_num(brightness)
 
         # broadcast to clients if in server mode
         if self.server:
@@ -670,6 +682,10 @@ class Lightshow(object):
         self.sample_rate = self.music_file.getframerate()
         self.num_channels = self.music_file.getnchannels()
 
+        if self.sequence_type == 'csv':
+            # Calculate chunk size for custom sequence
+            self.chunk_size = int(self.sample_rate * (cm.custom_sequences.timing / 1000))
+
         self.fft_calc = fft.FFT(self.chunk_size,
                                 self.sample_rate,
                                 cm.hardware.gpio_len,
@@ -822,6 +838,16 @@ class Lightshow(object):
         self.song_filename = self.song_filename.replace("$SYNCHRONIZED_LIGHTS_HOME", cm.home_dir)
 
         filename = os.path.abspath(self.song_filename)
+        
+        self.sequence_filename = filename.rsplit('.',1)[0] + '.csv'
+        if os.path.isfile(self.sequence_filename):
+            sequence_channel_count = len(open(self.sequence_filename).readline().rstrip().split(","))
+            if (sequence_channel_count == cm.hardware.gpio_len):
+                self.sequence_type = 'csv'
+            else:
+               print("Number of channels in sequence does not match the number of channels set in LightShowPi!")
+               exit()
+
         self.config_filename = \
             os.path.dirname(filename) + "/." + os.path.basename(self.song_filename) + ".cfg"
         self.cache_filename = \
@@ -876,8 +902,11 @@ class Lightshow(object):
         # setup audio file and output device
         self.setup_audio()
 
-        # setup our cache_matrix, std, mean
-        self.setup_cache()
+        if self.sequence_type == 'auto':
+            # setup our cache_matrix, std, mean
+            self.setup_cache()
+        elif self.sequence_type == 'csv':
+            song_sequence_file = open(self.sequence_filename)
 
         matrix_buffer = deque([], 1000)
 
@@ -885,7 +914,7 @@ class Lightshow(object):
         row = 0
         data = self.music_file.readframes(self.chunk_size)
 
-        if args.createcache:
+        if args.createcache and self.sequence_type == 'auto':
             total_frames = self.music_file.getnframes() / 100
 
             counter = 0
@@ -921,27 +950,39 @@ class Lightshow(object):
             # output data to sound device
             self.output(data)
 
-            # Control lights with cached timing values if they exist
-            matrix = None
-            if self.cache_found and args.readcache:
-                if row < len(self.cache_matrix):
-                    matrix = self.cache_matrix[row]
+            if self.sequence_type == 'auto':
+                # Control lights with cached timing values if they exist
+                matrix = None
+                if self.cache_found and args.readcache:
+                    if row < len(self.cache_matrix):
+                        matrix = self.cache_matrix[row]
+                    else:
+                        log.warning("Ran out of cached FFT values, will update the cache.")
+                        self.cache_found = False
+
+                if matrix is None:
+                    # No cache - Compute FFT in this chunk, and cache results
+                    matrix = self.fft_calc.calculate_levels(data)
+
+                    # Add the matrix to the end of the cache
+                    self.cache_matrix = np.vstack([self.cache_matrix, matrix])
+
+                matrix_buffer.appendleft(matrix)
+
+                if len(matrix_buffer) > self.light_delay:
+                    matrix = matrix_buffer[self.light_delay]
+                    self.update_lights(matrix)
+            elif self.sequence_type == 'csv':
+                ssf_read = song_sequence_file.readline()
+                if ssf_read:
+                    ssf_line = list(map(float,ssf_read.strip().split(','))) # Get next line in CSV sequence file
+                    matrix = np.asarray(ssf_line, dtype=np.float32)
                 else:
-                    log.warning("Ran out of cached FFT values, will update the cache.")
-                    self.cache_found = False
-
-            if matrix is None:
-                # No cache - Compute FFT in this chunk, and cache results
-                matrix = self.fft_calc.calculate_levels(data)
-
-                # Add the matrix to the end of the cache
-                self.cache_matrix = np.vstack([self.cache_matrix, matrix])
-
-            matrix_buffer.appendleft(matrix)
-
-            if len(matrix_buffer) > self.light_delay:
-                matrix = matrix_buffer[self.light_delay]
-                self.update_lights(matrix)
+                    matrix = np.zeros(cm.hardware.gpio_len, dtype='float32')
+                matrix_buffer.appendleft(matrix)
+                if len(matrix_buffer) > self.light_delay:
+                    matrix = matrix_buffer[self.light_delay]
+                    self.update_lights(matrix)
 
             # Read next chunk of data from music song_filename
             data = self.music_file.readframes(self.chunk_size)
@@ -951,7 +992,7 @@ class Lightshow(object):
             cm.load_state()
             play_now = int(cm.get_state('play_now', "0"))
 
-        if not self.cache_found and not play_now:
+        if not self.cache_found and not play_now and self.sequence_type == 'auto':
             self.save_cache()
 
         # Cleanup the pifm process

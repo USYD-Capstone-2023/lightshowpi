@@ -108,6 +108,7 @@ class Configuration(object):
             self.set_audio_processing()
             self.set_network()
             self.set_terminal()
+            self.set_custom_sequences()
         else:
             self.sms = None
             self.who_can = dict()
@@ -226,8 +227,13 @@ class Configuration(object):
         hrdwr["is_pin_pwm"] = [True if pin == "pwm" else False for pin in hrdwr["pin_modes"]]
 
         hrdwr["pwm_range"] = int(self.config.get('hardware', 'pwm_range'))
-        hrdwr["active_low_mode"] = self.config.getboolean('hardware', 'active_low_mode')
         hrdwr["piglow"] = self.config.getboolean('hardware', 'piglow')
+
+        temp = self.config.get('hardware', 'active_low_mode').split(",")
+        if len(temp) != 1:
+            hrdwr["active_low_mode"] = [self.config._convert_to_boolean(t) for t in temp]
+        else:
+            hrdwr["active_low_mode"] = [self.config._convert_to_boolean(temp[0]) for _ in range(self.gpio_len)]
 
         self.hardware = Section(hrdwr)
 
@@ -238,6 +244,12 @@ class Configuration(object):
         term = dict()
         term["enabled"] = self.config.getboolean('terminal', 'enabled')
         self.terminal = Section(term)
+
+    def set_custom_sequences(self):
+        scs = dict()
+        scs["timing"] = self.config.getint('custom_sequences', 'timing')
+        scs["brightness_range"] = self.config.getint('custom_sequences', 'brightness_range')
+        self.custom_sequences = Section(scs)
 
     def set_led(self, config_file):
         """
