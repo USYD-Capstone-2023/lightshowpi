@@ -704,6 +704,142 @@ def dance():
                 light_off(lights2[light], False, 0.0)
 
 
+def even_odd_alt_flash(iteration, lights, sleepTime, pwnSleepTime):            # Jack Thomas
+    """
+    Even and Odd Alternating Flash
+    This is a helper function that will loop through the provided lights list
+    and will alternate which lights are on (even or odd) depending on the
+    provided iteration. Note that sleep time and pwm sleep time are also 
+    provided to this function.
+    Parameters:
+    iteration    int
+    lights       list of ints
+    sleepTime    float
+    pwmSleepTime float
+    """
+    # Loop through all lights provided
+    for light in lights:
+        # PIN is PWN channel
+        if cm.hardware.is_pin_pwm[light]:
+            # This is an even iteration
+            if iteration % 2 == 0: 
+                if light % 2 == 0: 
+                    # fade in
+                    for brightness in range(0, pwm_max):
+                        light_on(light, False, float(brightness) / pwm_max)
+                        time.sleep(pwmSleepTime / pwm_max)
+                    
+                    # fade out
+                    for brightness in range(pwm_max - 1, -1, -1):
+                        light_on(light, False, float(brightness) / pwm_max)
+                        time.sleep(pwmSleepTime / pwm_max)
+            # This is an odd iteration
+            else:
+                if light % 2 != 0: 
+                    # fade in
+                    for brightness in range(0, pwm_max):
+                        light_on(light, False, float(brightness) / pwm_max)
+                        time.sleep(pwmSleepTime / pwm_max)
+                    
+                    # fade out
+                    for brightness in range(pwm_max - 1, -1, -1):
+                        light_on(light, False, float(brightness) / pwm_max)
+                        time.sleep(pwmSleepTime / pwm_max)
+        # PIN is ON/OFF channel
+        else:
+            # This is an even iteration
+            if iteration % 2 == 0: 
+                if light % 2 == 0:
+                    light_on(light, False, 1.0)
+                else:
+                    light_off(light, False, 0.0)
+            # This is an odd iteration
+            else:
+                if light % 2 != 0:
+                    light_on(light, False, 1.0)
+                else:
+                    light_off(light, False, 0.0)
+    # Sleep after looping through all lights
+    time.sleep(sleepTime)
+
+
+def sprinkler():                                                               # Jack Thomas
+    """
+    First alternate between even and odd lights slowly, 
+    then alternate between even and odd lights quickly,
+    resembling the pattern of a lawn sprinkler.
+    """
+    # Sleep times in seconds
+    SLOW_SLEEP_TIME = 1.0
+    QUICK_SLEEP_TIME = 0.2
+
+    # This is the iteration list,
+    # must contain 1 even number and 1 odd number
+    ITERATIONS = [0,1]
+
+    # get cm.hardware.pwm_range from the hc module
+    # this is the max value for the pwm channels
+    pwm_max = cm.hardware.pwm_range
+
+    # Initializations for slow and quick flashing
+    # Begin with slow flashing
+    flash = True
+    count = 0    
+    sleepTime = SLOW_SLEEP_TIME
+
+    # Do this until ^c or --state=off
+    print("Press <CTRL>-C to stop")
+    while True:
+        for iteration in ITERATIONS:
+            # Decide which lights to turn on/off
+            even_odd_alt_flash(iteration, lights, sleepTime, QUICK_SLEEP_TIME)
+
+            # Alternate between quick flashing and slow flashing
+            if count >= int(len(lights)):
+                if flash: # flash == True
+                    sleepTime = QUICK_SLEEP_TIME
+                    # Switch to slow flashing for next time
+                    flash = False
+                else: # flash == False
+                    sleepTime = SLOW_SLEEP_TIME
+                    # Switch to quick flashing for next time
+                    flash = True
+                count = 0
+            else:
+                count += 1
+
+
+def half_flash():                                                              # Jack Thomas
+    """
+    Make the first half of lights flash while the second half are always on
+    """
+    # Sleep times in seconds
+    SLEEP_TIME = 0.75
+    PWM_SLEEP_TIME = 0.1
+    
+    # This is the iteration list,
+    # must contain 1 even number and 1 odd number
+    ITERATIONS = [0,1]
+
+    # Create the sub-arrays for first and second halves of lights
+    lightCount = int(len(lights))
+    halfCount = int(lightCount / 2)
+    firstHalf = lights[:halfCount]
+    secondHalf = lights[halfCount:]
+
+    # Turn on (and leave on) the second half of lights
+    for light in secondHalf:
+        light_on(light, False, 1.0)
+
+    # Do this until ^c or --state=off
+    print("Press <CTRL>-C to stop")
+    # Flash the first half of lights
+    while True:
+        for iteration in ITERATIONS:
+            # Decide which lights to turn on/off in the first half
+            even_odd_alt_flash(iteration, firstHalf, SLEEP_TIME, PWM_SLEEP_TIME)
+
+
 def step():
     """Test fading in and out for each light configured in pwm mode"""
     print("Press <CTRL>-C to stop")
@@ -862,6 +998,12 @@ def main():
     elif state == "dance":
         dance()
 
+    elif state == "sprinkler":
+        sprinkler()
+
+    elif state == "half_flash":
+        half_flash()
+
     elif state == "step":
         step()
 
@@ -881,10 +1023,12 @@ if __name__ == "__main__":
                                             "random_pattern",
                                             "cylon",
                                             "dance",
+                                            "sprinkler",
+                                            "half_flash",
                                             "step",
                                             "cleanup"],
                         help='turn off, on, flash, fade, random_pattern, cylon, '
-                             'dance, step or cleanup')
+                             'dance, step, sprinkler, half_flash, or cleanup')
     parser.add_argument('--test', action="store_true",
                         help='Run a basic hardware test')
 
